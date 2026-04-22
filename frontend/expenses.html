@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Expenses</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Navbar -->
+  <div class="navbar">
+    <div class="logo">Expense Tracker</div>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="#">Expenses</a>
+    </div>
+  </div>
+
+  <!-- Heading -->
+  <h1 style="margin-bottom: 20px;">My Expenses</h1>
+
+  <!-- Cards -->
+  <div class="cards">
+    <div class="card">
+      <h3>Total Expenses</h3>
+      <p class="expense" id="totalAmount">₹0</p>
+    </div>
+
+    <div class="card">
+      <h3>Total Transactions</h3>
+      <p class="balance" id="totalCount">0</p>
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div style="margin-bottom: 20px;">
+    <button onclick="goBack()">⬅ Back</button>
+    <button onclick="loadExpenses()">🔄 Refresh</button>
+  </div>
+  <div class="card chart-card">
+  <h3>Expense Breakdown</h3>
+
+  <div class="chart-container">
+    <canvas id="expenseChart"></canvas>
+  </div>
+</div>
+
+  <!-- Table -->
+  <div class="table-section">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Amount</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody id="expensesTable"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const API = "http://localhost:8000";
+const token = localStorage.getItem("token");
+
+function goBack() {
+  window.location.href = "index.html";
+}
+
+async function loadExpenses() {
+  try {
+    const res = await fetch(`${API}/expenses`, {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    const data = await res.json();
+
+    const table = document.getElementById("expensesTable");
+    table.innerHTML = "";
+
+    let total = 0;
+
+    data.forEach(exp => {
+  if (exp.category.toLowerCase() !== "meals") return;
+
+  total += exp.amount;
+
+  const row = `
+    <tr>
+      <td>${exp.id}</td>
+      <td>₹${exp.amount}</td>
+      <td>${exp.category}</td>
+      <td>${exp.description}</td>
+      <td>${new Date(exp.created_at).toLocaleDateString()}</td>
+    </tr>
+  `;
+
+  table.innerHTML += row;
+});
+
+    document.getElementById("totalAmount").textContent = "₹" + total;
+    document.getElementById("totalCount").textContent = data.length;
+    // ===== PIE CHART START =====
+
+const categoryMap = {};
+
+data.forEach(exp => {
+  // normalize category (fix case issue)
+  const category = exp.category.toLowerCase();
+
+  if (!categoryMap[category]) {
+    categoryMap[category] = 0;
+  }
+  categoryMap[category] += exp.amount;
+});
+
+const labels = Object.keys(categoryMap).map(cat =>
+  cat.charAt(0).toUpperCase() + cat.slice(1)
+);
+const values = Object.values(categoryMap);
+
+const ctx = document.getElementById("expenseChart");
+
+// destroy old chart if exists
+if (window.chartInstance) {
+  window.chartInstance.destroy();
+}
+
+window.chartInstance = new Chart(ctx, {
+  type: "pie",
+  data: {
+    labels: labels,
+    datasets: [{
+      data: values,
+      backgroundColor: [
+        "#38bdf8",
+        "#22c55e",
+        "#f59e0b",
+        "#ef4444",
+        "#a855f7"
+      ]
+    }]
+  }
+});
+
+// ===== PIE CHART END =====
+
+  } catch (e) {
+    alert("Error loading expenses: " + e.message);
+  }
+}
+
+loadExpenses();
+</script>
+
+</body>
+</html>
